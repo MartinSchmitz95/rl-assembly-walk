@@ -150,8 +150,7 @@ def process_graph(out_dir, data_path, filename, id):
     in_out = create_in_out(nx_graph)
     anc_desc, node_dist, seq_dist, non_trans_edges = create_dag_ftrs(nx_graph)
     edge_ftrs = create_edge_features(nx_graph)
-
-    empty_graph = nx.from_edgelist(nx_graph.edges())
+    empty_graph = nx.DiGraph(nx_graph.edges())
     pyg_graph = from_networkx(empty_graph)
     pyg_graph.edge_attr = torch.hstack((non_trans_edges, edge_ftrs))
     pyg_graph.y = ground_truth

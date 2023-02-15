@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-from layers import GatedGCN, ScorePredictor, ScorePredictorF
-from encoders import SequenceEncoderBasic, SequenceEncoderAttention, SequenceEncoderMultiAttention, EncoderCNN, SequenceEncoderNoPadding, TwoLayerMLP
+from layers import GatedGCN, EdgePredictor, NodePredictor, TwoLayerMLP
 
 
 class QValueModel(nn.Module):
@@ -17,20 +16,12 @@ class QValueModel(nn.Module):
 		self.linear2_edge = nn.Linear(config['hidden_edge_features'], config['dim_latent'], dtype=dtype)
 		self.gnn = GatedGCN(config['num_gnn_layers'], config['dim_latent'], config['device'], config['batch_norm'])
 		#self.predictor = ScorePredictorF(config['dim_latent'], config['hidden_edge_scores'])
-		self.predictor = ScorePredictor(config['dim_latent'], config['hidden_edge_scores'])
+		self.edge_values = EdgePredictor(config['dim_latent'], config['hidden_edge_scores'])
+		self.node_values = NodePredictor(config['dim_latent'], config['hidden_edge_scores'])
 
 	def forward(self, edge_index, x, e):
-		# load data to gpu
+
 		x = x.to(self.device)
-		#if self.node_feature_mode == 'direct_f':
-		#	f = torch.clone(x)[:, 2:]
-		#	x = x[:, :2]
-		#	#fe = torch.clone(e)[:, 2:]
-		#	#e = e[:, :2]
-		#	#fe=None
-		#else:
-		#	f = None
-		#	fe = None
 		x = self.encoder(x)
 		e = e.to(self.device)
 
@@ -41,5 +32,7 @@ class QValueModel(nn.Module):
 
 		# use gnn
 		x, e = self.gnn(edge_index, x, e)
-		scores = self.predictor(edge_index, x, e)
-		return scores
+		edge_values = self.edge_values(edge_index, x, e)
+		node_values = self.node_values(x)
+
+		return edge_values, node_values

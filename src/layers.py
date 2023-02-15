@@ -5,6 +5,21 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import MessagePassing
 from positional_encodings.torch_encodings import PositionalEncoding1D, Summer
 
+class TwoLayerMLP(torch.nn.Module):
+    def __init__(self, input_dim, dim_latent):
+        super(TwoLayerMLP, self).__init__()
+        self.f1 = nn.Linear(input_dim,16)
+        self.f2 = nn.Linear(16,dim_latent)
+
+        self.relu = torch.nn.ReLU() # instead of Heaviside step fn
+        self.sigm = nn.Sigmoid()
+
+    def forward(self, x):
+        output = self.f1(x)
+        output = self.relu(output)
+        output = self.f2(output)
+        output = self.sigm(output)
+        return output
 
 class GatedGCN(nn.Module):
 	def __init__(self, num_gnn_layers, dim_latent, device, batch_norm):
@@ -38,7 +53,7 @@ class DoubleGatedGCNLayer(MessagePassing):
 
 		self.U = nn.Linear(dim_latent, dim_latent, dtype=dtype)
 		self.V_f = nn.Linear(dim_latent, dim_latent, dtype=dtype)
-		self.V_b = nn.Linear(dim_latent, dim_latent, dtype=dtype)
+		#self.V_b = nn.Linear(dim_latent, dim_latent, dtype=dtype)
 
 		self.conc = nn.Linear(3*dim_latent, dim_latent, dtype=dtype)
 
@@ -46,7 +61,7 @@ class DoubleGatedGCNLayer(MessagePassing):
 
 		U = self.U(h)  # A1h
 		V_f = self.V_f(h)  # A2h
-		V_b = self.V_b(h)  # A3h
+		#V_b = self.V_b(h)  # A3h
 
 		A = self.A(h)  # B1h
 		B = self.B(h)  # B2h
@@ -54,18 +69,15 @@ class DoubleGatedGCNLayer(MessagePassing):
 
 		h_in = h.clone()
 		h_f, e = self.directed_gate(edge_index, A, B, C, V_f, e_in, h_in, forward=True)
-		h_b, _ = self.directed_gate(edge_index, A, B, C, V_b, e_in, h_in, forward=False)
-
-		h = h_f + h_b + U  # concat instead and add a ff layer?
-		#h = torch.cat(([ h_f , h_b , U ]), dim=1) # concat instead and add a ff layer?
-		#h = self.conc(h)
+		# h_b, _ = self.directed_gate(edge_index, A, B, C, V_b, e_in, h_in, forward=False)
+		h = h_f + U  # + h_b
 
 		if self.batch_norm:
 			h = self.bn_h(h)
 		h = F.relu(h)
 		h = h + h_in
 		#h = F.dropout(h, self.dropout, training=self.training)
-		h =self.dropout(h)
+		h = self.dropout(h)
 		return h, e
 
 	def directed_gate(self, edge_index, A, B, C, V, e, h_in, forward):
@@ -92,24 +104,35 @@ class DoubleGatedGCNLayer(MessagePassing):
 		return V_j * sigma_f / (sigma_f + 1e-6)
 
 
-class ScorePredictor(nn.Module):
+class EdgePredictor(nn.Module):
 	def __init__(self, dim_latent, hidden_edge_scores):
 		super().__init__()
 		self.W1 = nn.Linear(3 * dim_latent, hidden_edge_scores)
 		self.W2 = nn.Linear(hidden_edge_scores, hidden_edge_scores)
 		self.W3 = nn.Linear(hidden_edge_scores, 1)
 
-		self.dropout = nn.Dropout(p=0.2)
-
-	def forward(self, edge_index, x, e, f):
+	def forward(self, edge_index, x, e):
 		src, dst = edge_index
 		data = torch.cat(([x[src], x[dst], e]), dim=1)
 		h = self.W1(data)
 		h = torch.relu(h)
-		h = self.dropout(h)
 		h = self.W2(h)
 		h = torch.relu(h)
-		h = self.dropout(h)
+		score = self.W3(h)
+		return score
+
+class NodePredictor(nn.Module):
+	def __init__(self, dim_latent, hidden_edge_scores):
+		super().__init__()
+		self.W1 = nn.Linear(dim_latent, hidden_edge_scores)
+		self.W2 = nn.Linear(hidden_edge_scores, hidden_edge_scores)
+		self.W3 = nn.Linear(hidden_edge_scores, 1)
+
+	def forward(self, x):
+		h = self.W1(x)
+		h = torch.relu(h)
+		h = self.W2(h)
+		h = torch.relu(h)
 		score = self.W3(h)
 		return score
 

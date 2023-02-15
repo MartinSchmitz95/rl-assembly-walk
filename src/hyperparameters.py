@@ -8,18 +8,19 @@ def get_hyperparameters():
         'wandb_project': 'rl-assembly-walk',
 
         # Model
-        'dim_latent': 256,
-        'num_gnn_layers': 16,
-        'node_features': 2,
-        'edge_features': 2,
+        'dim_latent': 64,
+        'num_gnn_layers': 4,
+        'node_features': 8,
+        'edge_features': 3,
         'hidden_edge_features': 16,
         'hidden_edge_scores': 64,
-        'batch_norm': True,
+        'batch_norm': False,
 
         # Training
-        'num_epochs': 150,
-        'lr': 2e-5,
-        'patience': 2,
-        'decay': 0.95,
+        'n_episodes': 1_000,
+        'learning_rate': 2e-5,
+        'discount_factor': 0.95,
+        'start_epsilon': 1.0,
+        'final_epsilon': 0.1
 
 	}
