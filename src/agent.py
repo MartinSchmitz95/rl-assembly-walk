@@ -77,8 +77,10 @@ class AssemblyWalkAgent:
         #    legal_actions_recomputed.unsqueeze(1)
         legal_q_action_values = edge_values[edge_action_index.squeeze()]
         # get best edge action and action indices
-        action_value = torch.max(legal_q_action_values)
-        action_index = torch.argmax(legal_q_action_values)
+        action_value, action_index = torch.max(legal_q_action_values, dim=0)
+        action_value = action_value.item()
+        action_index = action_index.item()
+        #action_index = torch.argmax(legal_q_action_values, dim=0)
         # compare best edge action with stop action and return best
         if stop_action > action_value:
             action = None
