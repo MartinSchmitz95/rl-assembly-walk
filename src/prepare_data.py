@@ -131,7 +131,7 @@ def create_gt(nx_graph):
     print(f"Total fraction of edges: {len(correct_edges)}, of {len(nx_graph.edges)} edges in total")
     return torch.Tensor(list(gt_dict.values()))
 
-def process_graph(out_dir, data_path, filename, id):
+def process_graph_dag(out_dir, data_path, filename, id):
 
     filename = filename[:-4]
     if not os.path.isfile(data_path):
@@ -159,12 +159,36 @@ def process_graph(out_dir, data_path, filename, id):
     with open(os.path.join(out_dir, f'{filename}.pt'), 'wb') as handle:
         torch.save(pyg_graph, handle)
 
+def process_graph(out_dir, data_path, filename, id):
 
+    filename = filename[:-4]
+    if not os.path.isfile(data_path):
+        return
+    with open(data_path, 'rb') as pickle_file:
+        nx_graph = pickle.load(pickle_file)
+
+    id_dict = {}
+    for i, n in enumerate(nx_graph.nodes):
+        id_dict[n] = i
+    nx_graph = nx.relabel_nodes(nx_graph, id_dict, copy=True)
+    print(f"Loaded {filename}")
+
+    ground_truth = create_gt(nx_graph)
+    #read_length, relative_read_length = create_read_length(nx_graph)
+    empty_graph = nx.DiGraph(nx_graph.edges())
+    pyg_graph = from_networkx(empty_graph)
+    pyg_graph.edge_attr = create_edge_features(nx_graph)
+    pyg_graph.y = ground_truth
+    pyg_graph.x = create_in_out(nx_graph)
+
+    with open(os.path.join(out_dir, f'{filename}.pt'), 'wb') as handle:
+        torch.save(pyg_graph, handle)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # input
-    parser.add_argument('--data', type=str, default='../data/', help='Path to folder with data tuples')
+    parser.add_argument('--data', type=str, default='../data/', help='Path to folder with data')
+    parser.add_argument('--dag', default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     in_dir = os.path.join(os.path.abspath(args.data), 'raw_graphs')
@@ -175,7 +199,10 @@ if __name__ == '__main__':
     for id, filename in enumerate(os.listdir(in_dir)):
         print(f'Process {filename}, graph {id + 1}/{len(os.listdir(in_dir))}')
         data_path = os.path.join(in_dir, filename)
-        process_graph(out_dir, data_path, filename, id)
+        if args.dag:
+            process_graph_dag(out_dir, data_path, filename, id)
+        else:
+            process_graph(out_dir, data_path, filename, id)
 
     train_dir = os.path.join(out_dir, "train")
     val_dir = os.path.join(out_dir, "val")

@@ -22,10 +22,10 @@ class TwoLayerMLP(torch.nn.Module):
         return output
 
 class GatedGCN(nn.Module):
-	def __init__(self, num_gnn_layers, dim_latent, device, batch_norm):
+	def __init__(self, num_gnn_layers, dim_latent, device, batch_norm, dag):
 		super().__init__()
 		self.convs = nn.ModuleList([
-			DoubleGatedGCNLayer(dim_latent, device, batch_norm) for _ in range(num_gnn_layers)
+			DoubleGatedGCNLayer(dim_latent, device, batch_norm, dag) for _ in range(num_gnn_layers)
 		])
 
 	def forward(self, edge_index, h, e):
@@ -35,12 +35,13 @@ class GatedGCN(nn.Module):
 
 
 class DoubleGatedGCNLayer(MessagePassing):
-	def __init__(self, dim_latent, device, batch_norm, dropout=0.1):
+	def __init__(self, dim_latent, device, batch_norm, dag, dropout=0.1):
 		super().__init__(aggr='add')  # "Add" aggregation
 		#self.training = training
 		dtype = torch.float32
 		self.device = device
 		self.batch_norm = batch_norm
+		self.dag = dag
 		# self.propagate_edges = Gate(dim_latent)  # 'source_to_target'  target_to_source
 		# self.sum_sigma = SGate(dim_latent)  # 'source_to_target'  target_to_source
 		self.bn_h = nn.BatchNorm1d(dim_latent, track_running_stats=False)
@@ -53,7 +54,8 @@ class DoubleGatedGCNLayer(MessagePassing):
 
 		self.U = nn.Linear(dim_latent, dim_latent, dtype=dtype)
 		self.V_f = nn.Linear(dim_latent, dim_latent, dtype=dtype)
-		#self.V_b = nn.Linear(dim_latent, dim_latent, dtype=dtype)
+		if not self.dag:
+			self.V_b = nn.Linear(dim_latent, dim_latent, dtype=dtype)
 
 		self.conc = nn.Linear(3*dim_latent, dim_latent, dtype=dtype)
 
@@ -61,7 +63,8 @@ class DoubleGatedGCNLayer(MessagePassing):
 
 		U = self.U(h)  # A1h
 		V_f = self.V_f(h)  # A2h
-		#V_b = self.V_b(h)  # A3h
+		if not self.dag:
+			V_b = self.V_b(h)  # A3h
 
 		A = self.A(h)  # B1h
 		B = self.B(h)  # B2h
@@ -69,8 +72,12 @@ class DoubleGatedGCNLayer(MessagePassing):
 
 		h_in = h.clone()
 		h_f, e = self.directed_gate(edge_index, A, B, C, V_f, e_in, h_in, forward=True)
-		# h_b, _ = self.directed_gate(edge_index, A, B, C, V_b, e_in, h_in, forward=False)
-		h = h_f + U  # + h_b
+		if not self.dag:
+			h_b, _ = self.directed_gate(edge_index, A, B, C, V_b, e_in, h_in, forward=False)
+		if self.dag:
+			h = h_f + U
+		else:
+			h = h_f + U + h_b
 
 		if self.batch_norm:
 			h = self.bn_h(h)

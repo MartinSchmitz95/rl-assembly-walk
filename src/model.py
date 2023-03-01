@@ -4,7 +4,7 @@ from layers import GatedGCN, EdgePredictor, NodePredictor, TwoLayerMLP
 
 
 class QValueModel(nn.Module):
-	def __init__(self, config, cpu=False):
+	def __init__(self, config, dag=True, cpu=False):
 		super().__init__()
 		dtype = torch.float32
 		if cpu:
@@ -14,7 +14,7 @@ class QValueModel(nn.Module):
 		self.encoder = TwoLayerMLP(config['node_features'], config['dim_latent'])
 		self.linear1_edge = nn.Linear(config['edge_features'], config['hidden_edge_features'], dtype=dtype)
 		self.linear2_edge = nn.Linear(config['hidden_edge_features'], config['dim_latent'], dtype=dtype)
-		self.gnn = GatedGCN(config['num_gnn_layers'], config['dim_latent'], config['device'], config['batch_norm'])
+		self.gnn = GatedGCN(config['num_gnn_layers'], config['dim_latent'], config['device'], config['batch_norm'], dag=dag)
 		#self.predictor = ScorePredictorF(config['dim_latent'], config['hidden_edge_scores'])
 		self.edge_values = EdgePredictor(config['dim_latent'], config['hidden_edge_scores'])
 		self.node_values = NodePredictor(config['dim_latent'], config['hidden_edge_scores'])

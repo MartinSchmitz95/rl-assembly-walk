@@ -8,8 +8,9 @@ import torch
 import networkx as nx
 class GraphWalkEnv():
 
-    def __init__(self, graph_folder):
+    def __init__(self, graph_folder, dag=True):
         self.graph_dataset = self.get_graph_data(graph_folder)
+        self.dag = dag
         self.active_graph_pyg = None
         self.active_graph_nx = None
         self.active_node = None
@@ -17,6 +18,7 @@ class GraphWalkEnv():
         self.malicious_edges = None
         self.accumulated_reward = 0
         self.reset()
+        self.visited_nodes = []
 
     def get_graph_data(self, graph_folder):
         graph_list = []
@@ -40,6 +42,7 @@ class GraphWalkEnv():
         self.active_graph_pyg = torch.load(graph_path)
         self.active_graph_nx = to_networkx(self.active_graph_pyg)
         self.accumulated_reward = 0
+        self.visited_nodes = []
 
         self.malicious_edges = {}
         edge_index = self.active_graph_pyg.edge_index.T
@@ -61,6 +64,7 @@ class GraphWalkEnv():
         :return: list of legal actions
         """
         return list(self.active_graph_nx.edges(self.active_node))
+
     def step(self, action):
         """
         next_state: This is the observation that the agent will receive after taking the action.
@@ -72,6 +76,11 @@ class GraphWalkEnv():
             reward = 0
         else:
             self.active_node = action[1]
+            if not self.dag:
+                if self.active_node in self.visited_nodes:  # terminate if node already visited
+                    terminated = True
+                self.visited_nodes.append(self.active_node)
+            #print(action)
             if self.malicious_edges[action]:  # terminate if malicious edge is crossed
                 terminated = True
                 reward = - self.accumulated_reward
