@@ -72,18 +72,20 @@ class AssemblyWalkAgent:
                                                        flow='target_to_source')  # directed=False
         comp = edge_index_norelabel[0].numpy()
         edge_action_index = np.argwhere(comp == obs['agent_location'])
-        legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze()]
+        legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze()].view(-1, 2)
+        #if len(legal_actions_recomputed) == 1:  # if only one legal action, the tensor is squeeed otherwise
+        #    legal_actions_recomputed.unsqueeze(1)
         legal_q_action_values = edge_values[edge_action_index.squeeze()]
-
         # get best edge action and action indices
         action_value = torch.max(legal_q_action_values)
         action_index = torch.argmax(legal_q_action_values)
         # compare best edge action with stop action and return best
         if stop_action > action_value:
-            action = stop_action
+            action = None
         else:
-            action = (
-            legal_actions_recomputed[action_index][0].item(), legal_actions_recomputed[action_index][1].item())
+            source = legal_actions_recomputed[action_index][0].item()
+            target =  legal_actions_recomputed[action_index][1].item()
+            action = (source, target)
 
         return action
 

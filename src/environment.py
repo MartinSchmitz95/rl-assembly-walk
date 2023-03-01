@@ -80,7 +80,6 @@ class GraphWalkEnv():
                 if self.active_node in self.visited_nodes:  # terminate if node already visited
                     terminated = True
                 self.visited_nodes.append(self.active_node)
-            #print(action)
             if self.malicious_edges[action]:  # terminate if malicious edge is crossed
                 terminated = True
                 reward = - self.accumulated_reward
