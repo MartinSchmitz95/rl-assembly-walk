@@ -2,7 +2,7 @@ import torch
 
 def get_hyperparameters():
     return {
-        'device': 'cuda:5' if torch.cuda.is_available() else 'cpu',
+        'device': 'cuda:0' if torch.cuda.is_available() else 'cpu',
         'seed': 0,
         'wandb_mode': 'online',  # switch between 'online' and 'disabled'
         'wandb_project': 'rl-assembly-walk',

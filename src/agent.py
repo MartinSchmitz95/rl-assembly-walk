@@ -4,6 +4,7 @@ import random
 import torch
 from torch_geometric.utils import k_hop_subgraph, subgraph
 
+
 class AssemblyWalkAgent:
     def __init__(
         self,
@@ -23,12 +24,17 @@ class AssemblyWalkAgent:
 
         self.q_values = QValueModel(config)
 
+        if 'cuda' in config['device']:
+            cuda_device_id = int(config['device'].split(":")[1])
+            self.q_values = self.q_values.cuda(cuda_device_id)
 
-        self.gnn_layers =  config['num_gnn_layers']
+        self.gnn_layers = config['num_gnn_layers']
         self.lr = config['learning_rate']
         self.discount_factor = config['discount_factor']
         self.epsilon = config['start_epsilon']
-        self.epsilon_decay = config['start_epsilon'] / (config['n_episodes'] / 2)  # reduce the exploration over time
+        # reduce the exploration over time
+        self.epsilon_decay = config['start_epsilon'] / \
+            (config['n_episodes'] / 2)
         self.final_epsilon = config['final_epsilon']
         self.training_error = []
 
@@ -56,14 +62,16 @@ class AssemblyWalkAgent:
         subset, edge_index, _, _ = k_hop_subgraph(obs['agent_location'], self.gnn_layers,
                                                   obs['graph'].edge_index, relabel_nodes=True,
                                                   flow='target_to_source')  # directed=False
-        _, e = subgraph(subset, obs['graph'].edge_index, edge_attr=obs['graph'].edge_attr, relabel_nodes=False)
+        _, e = subgraph(subset, obs['graph'].edge_index,
+                        edge_attr=obs['graph'].edge_attr, relabel_nodes=False)
         x = obs['graph'].x[subset]
 
         # here the q-value of the env get be computed
         edge_values, node_values = self.q_values(edge_index, x, e)
 
         # find which node is the current agent position
-        stop_action_index = torch.argwhere(subset == obs['agent_location']).item()
+        stop_action_index = torch.argwhere(
+            subset == obs['agent_location']).item()
         stop_action = node_values[stop_action_index]
 
         # retrieve edge index ids, to check with q-value outputs are from the legal actions
@@ -72,8 +80,9 @@ class AssemblyWalkAgent:
                                                        flow='target_to_source')  # directed=False
         comp = edge_index_norelabel[0].numpy()
         edge_action_index = np.argwhere(comp == obs['agent_location'])
-        legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze()].view(-1, 2)
-        #if len(legal_actions_recomputed) == 1:  # if only one legal action, the tensor is squeeed otherwise
+        legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze(
+        )].view(-1, 2)
+        # if len(legal_actions_recomputed) == 1:  # if only one legal action, the tensor is squeeed otherwise
         #    legal_actions_recomputed.unsqueeze(1)
         legal_q_action_values = edge_values[edge_action_index.squeeze()]
         # get best edge action and action indices
@@ -86,7 +95,7 @@ class AssemblyWalkAgent:
             action = None
         else:
             source = legal_actions_recomputed[action_index][0].item()
-            target =  legal_actions_recomputed[action_index][1].item()
+            target = legal_actions_recomputed[action_index][1].item()
             action = (source, target)
 
         return action
@@ -96,4 +105,5 @@ class AssemblyWalkAgent:
         pass
 
     def decay_epsilon(self):
-        self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
+        self.epsilon = max(self.final_epsilon,
+                           self.epsilon - self.epsilon_decay)

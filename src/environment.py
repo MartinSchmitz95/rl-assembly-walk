@@ -3,6 +3,7 @@ Load environment and perform steps
 """
 import os
 import random
+import torch_geometric
 from torch_geometric.utils.convert import to_networkx
 import torch
 import networkx as nx
