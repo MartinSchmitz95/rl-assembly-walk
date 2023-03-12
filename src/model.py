@@ -7,11 +7,8 @@ class QValueModel(nn.Module):
 	def __init__(self, config, dag=True, cpu=False):
 		super().__init__()
 		dtype = torch.float32
-		if cpu:
-			self.device = 'cpu'
-		else:
-			self.device = config['device']
-		self.encoder = TwoLayerMLP(config['node_features'], config['dim_latent']).cuda()
+		self.device = config['device']
+		self.encoder = TwoLayerMLP(config['node_features'], config['dim_latent'])#.cuda()
 		self.linear1_edge = nn.Linear(config['edge_features'], config['hidden_edge_features'], dtype=dtype)
 		self.linear2_edge = nn.Linear(config['hidden_edge_features'], config['dim_latent'], dtype=dtype)
 		self.gnn = GatedGCN(config['num_gnn_layers'], config['dim_latent'], config['device'], config['batch_norm'], dag=dag)
@@ -22,8 +19,10 @@ class QValueModel(nn.Module):
 	def forward(self, edge_index, x, e):
 
 		x = x.to(self.device)
-		x = self.encoder(x)
 		e = e.to(self.device)
+		edge_index = edge_index.to(self.device)
+		
+		x = self.encoder(x)
 
 		# encode nodes and edges
 		e = self.linear1_edge(e)

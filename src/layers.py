@@ -29,14 +29,14 @@ class GatedGCN(nn.Module):
         self.convs = nn.ModuleList([DoubleGatedGCNLayer(
             dim_latent, device, batch_norm, dag) for _ in range(num_gnn_layers)])
 
-        self.convs = nn.ModuleList([])
+        """self.convs = nn.ModuleList([])
         for n in range(num_gnn_layers):
             dg_gcn_layer = DoubleGatedGCNLayer(
                 dim_latent, device, batch_norm, dag)
             if "cuda" in device:
                 cuda_device_id = int(device.split(":")[1])
                 dg_gcn_layer = dg_gcn_layer.cuda(cuda_device_id)
-            self.convs.add_module(f"dg_gcn:{n}", dg_gcn_layer)
+            self.convs.add_module(f"dg_gcn:{n}", dg_gcn_layer)"""
         # if "cuda" in device:
         #     cuda_device_id = int(device.split(":")[1])
         #     self.convs = self.convs.cuda(cuda_device_id)
