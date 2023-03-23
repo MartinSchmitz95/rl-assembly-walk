@@ -21,7 +21,7 @@ class QValueModel(nn.Module):
 		x = x.to(self.device)
 		e = e.to(self.device)
 		edge_index = edge_index.to(self.device)
-		
+
 		x = self.encoder(x)
 
 		# encode nodes and edges

@@ -10,7 +10,7 @@ import networkx as nx
 class GraphWalkEnv():
 
     def __init__(self, graph_folder, dag=True):
-        self.graph_dataset = self.get_graph_data(graph_folder)
+        self.graph_dataset, self.graph_names = self.get_graph_data(graph_folder)
         self.dag = dag
         self.active_graph_pyg = None
         self.active_graph_nx = None
@@ -23,9 +23,11 @@ class GraphWalkEnv():
 
     def get_graph_data(self, graph_folder):
         graph_list = []
+        graph_names = []
         for f in os.listdir(graph_folder):
             graph_list.append(os.path.join(graph_folder, f))
-        return graph_list
+            graph_names.append(f[:-3])
+        return graph_list, graph_names
 
     def _get_obs(self):
         return {"agent_location": self.active_node, "graph": self.active_graph_pyg}
@@ -33,13 +35,14 @@ class GraphWalkEnv():
     def _get_info(self):
         return None
 
-    def reset(self, seed=None, options=None):
+    def reset(self, graph_path=None, seed=None, options=None):
         """
         load a random graph from the training set.
         choose a random node as starting position.
         mark active node
         """
-        graph_path = random.choice(self.graph_dataset)
+        if graph_path == None:
+            graph_path = random.choice(self.graph_dataset)
         self.active_graph_pyg = torch.load(graph_path)
         self.active_graph_nx = to_networkx(self.active_graph_pyg)
         self.accumulated_reward = 0
@@ -84,6 +87,33 @@ class GraphWalkEnv():
             if self.malicious_edges[action]:  # terminate if malicious edge is crossed
                 terminated = True
                 reward = - self.accumulated_reward
+                self.accumulated_reward = 0
+            else:
+                terminated = False  # continue if move is normal
+                reward = 1
+                self.accumulated_reward += 1
+
+            if not (self.get_legal_actions()):  # terminate if no legal actions available
+                terminated = True
+
+        observation = self._get_obs()
+        return observation, reward, terminated
+
+    def step_inference(self, action):
+        """
+        next_state: This is the observation that the agent will receive after taking the action.
+        reward: This is the reward that the agent will receive after taking the action.
+        terminated: This is a boolean variable that indicates whether or not the environment has terminated.
+        """
+        if action == None:  # agent decides to stop
+            terminated = True
+            reward = 0
+        else:
+            self.active_node = action[1]
+            if not self.dag:
+                if self.active_node in self.visited_nodes:  # terminate if node already visited
+                    terminated = True
+                self.visited_nodes.append(self.active_node)
             else:
                 terminated = False  # continue if move is normal
                 reward = 1

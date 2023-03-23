@@ -4,6 +4,7 @@ import networkx as nx
 import pickle
 import torch
 from torch_geometric.utils.convert import from_networkx
+from torch_geometric.data import Data
 
 
 """
@@ -145,16 +146,33 @@ def process_graph_dag(out_dir, data_path, filename, id):
     nx_graph = nx.relabel_nodes(nx_graph, id_dict, copy=True)
     print(f"Loaded {filename}")
 
+    #with open("test.pkl", "wb") as f:
+    #    pickle.dump(nx_graph, f)
+
     ground_truth = create_gt(nx_graph)
     read_length, relative_read_length = create_read_length(nx_graph)
     in_out = create_in_out(nx_graph)
     anc_desc, node_dist, seq_dist, non_trans_edges = create_dag_ftrs(nx_graph)
     edge_ftrs = create_edge_features(nx_graph)
-    empty_graph = nx.DiGraph(nx_graph.edges())
-    pyg_graph = from_networkx(empty_graph)
+
+    # Get the node and edge attributes
+    edge_index = torch.tensor(list(nx_graph.edges)).t().contiguous()
+    num_nodes = nx_graph.number_of_nodes()
+    # Create a PyTorch Geometric data object
+    pyg_graph = Data(edge_index=edge_index)
     pyg_graph.edge_attr = torch.hstack((non_trans_edges, edge_ftrs))
     pyg_graph.y = ground_truth
-    pyg_graph.x = torch.hstack((in_out, relative_read_length,  read_length, seq_dist, node_dist, anc_desc))
+    pyg_graph.x = torch.hstack((in_out, relative_read_length, read_length, seq_dist, node_dist, anc_desc))
+
+    """print(list(nx_graph.edges(0)))
+    mask = (pyg_graph.edge_index[0] == 0) | (pyg_graph.edge_index[1] == 0)
+    edge_indices = pyg_graph.edge_index[:, mask]
+
+    # Print the edges
+    for i in range(edge_indices.shape[1]):
+        src, dst = edge_indices[:, i]
+        print(f"Edge {i}: {src.item()} -> {dst.item()}")"""
+
 
     with open(os.path.join(out_dir, f'{filename}.pt'), 'wb') as handle:
         torch.save(pyg_graph, handle)
@@ -188,7 +206,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # input
     parser.add_argument('--data', type=str, default='../data/', help='Path to folder with data')
-    parser.add_argument('--dag', default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--dag', default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     in_dir = os.path.join(os.path.abspath(args.data), 'raw_graphs')

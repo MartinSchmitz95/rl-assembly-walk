@@ -4,11 +4,18 @@ import random
 import torch
 from torch_geometric.utils import k_hop_subgraph, subgraph
 
+class RandomWalkAgent:
+    def __init__(self,):
+        pass
+    def get_action(self, obs, legal_actions):
+        #legal_actions.append(None)
+        return random.choice(legal_actions)
+
 
 class AssemblyWalkAgent:
     def __init__(
         self,
-        config,
+        config, inference=False
     ):
         """
         Initialize a Reinforcement Learning agent with an empty dictionary
@@ -22,11 +29,11 @@ class AssemblyWalkAgent:
             discount_factor: The discount factor for computing the Q-value
         """
 
-        self.q_values = QValueModel(config)
+        self.q_values = QValueModel(config).to(config['device'])
 
-        if 'cuda' in config['device']:
+        """if 'cuda' in config['device']:
             cuda_device_id = int(config['device'].split(":")[1])
-            self.q_values = self.q_values.cuda(cuda_device_id)
+            self.q_values = self.q_values.cuda(cuda_device_id)"""
 
         self.gnn_layers = config['num_gnn_layers']
         self.lr = config['learning_rate']
@@ -36,6 +43,11 @@ class AssemblyWalkAgent:
         self.epsilon_decay = config['start_epsilon'] / \
             (config['n_episodes'] / 2)
         self.final_epsilon = config['final_epsilon']
+
+        if inference:
+            self.final_epsilon = 1
+            self.final_epsilon = 1
+
         self.training_error = []
 
     def get_action(self, obs, legal_actions):
@@ -80,11 +92,13 @@ class AssemblyWalkAgent:
                                                        flow='target_to_source')  # directed=False
         comp = edge_index_norelabel[0].numpy()
         edge_action_index = np.argwhere(comp == obs['agent_location'])
+        print("hiiiii", edge_action_index)
+        print(legal_actions)
         legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze(
         )].view(-1, 2)
         # if len(legal_actions_recomputed) == 1:  # if only one legal action, the tensor is squeeed otherwise
         #    legal_actions_recomputed.unsqueeze(1)
-        legal_q_action_values = edge_values[edge_action_index.squeeze()]
+        legal_q_action_values = edge_values[edge_action_index.squeeze()].view(-1, 1)
         # get best edge action and action indices
         action_value, action_index = torch.max(legal_q_action_values, dim=0)
         action_value = action_value.item()
