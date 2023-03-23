@@ -211,6 +211,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     in_dir = os.path.join(os.path.abspath(args.data), 'raw_graphs')
     out_dir = os.path.join(os.path.abspath(args.data), 'processed_graphs')
+
+    out_dir = '../../scratch/from_my_ionode/dag_pbsim_data/rl_processed_graphs'
+    in_dir = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/raw'
+
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

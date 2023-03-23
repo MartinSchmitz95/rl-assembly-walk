@@ -179,16 +179,18 @@ def assemble_all_graphs(env, agent, out_folder):
             raw_graph = pickle.load(f)
         contigs = walk_to_sequence(paths, raw_graph)
 
-        assembly_path = os.path.join(out_folder, f'{env.graph_names[i]}.fasta')
+        assembly_path = os.path.join(out_folder, f'{env.graph_names[i][:-2]}.fasta')
         SeqIO.write(contigs, assembly_path, 'fasta')
 
-def evaluate_with_minigraph(ref_path, out, dataset):
+def evaluate_with_minigraph(ref_path, out):
 
     procs = []
 
-    for idx in dataset.indices:
-        end_char = dataset.graphs[idx].find('_')
-        chr = dataset.graphs[idx][:end_char]
+    for i in range(1,24):
+        if i == 23:
+            chr = 'chrX'
+        else:
+            chr = f'chr{i}'
 
         ref = os.path.join(ref_path, 'chromosomes', f'{chr}.fasta')
         asm = os.path.join(out, f'{chr}_assembly.fasta')
@@ -264,10 +266,10 @@ def parse_minigraph_for_chrs(save_path, data):
     print(*nga50.values(), sep='\n')
     print()
 
-processed_graphs_folder = '../../scratch/from_my_ionode/rl_processed_graphs'
-raw_graphs_folder = '../../scratch/from_my_ionode/raw'
-assembly_folder = '../../scratch/from_my_ionode/assembly'
-ref_path = '../../scratch/from_my_ionode/assembly'
+processed_graphs_folder = '../../scratch/from_my_ionode/dag_pbsim_data/rl_processed_graphs'
+raw_graphs_folder = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/raw'
+assembly_folder = '../../scratch/from_my_ionode/dag_pbsim_data/rl_assembly'
+ref_path = '../../scratch/from_my_ionode/chm13_references'
 
 """raw_graphs_folder = '../data/raw_graphs'
 processed_graphs_folder = '../data/processed_graphs'
@@ -292,5 +294,5 @@ if not os.path.exists(rl_ass_folder):
 
 assemble_all_graphs(env, rnd_agent, rnd_ass_folder)
 #assemble_all_graphs(env, rl_agent, rl_ass_folder)
-
-evaluate_with_minigraph(ref_path, rnd_ass_folder, dataset)
+print('created')
+evaluate_with_minigraph(ref_path, rnd_ass_folder)
