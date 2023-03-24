@@ -179,7 +179,7 @@ def assemble_all_graphs(env, agent, out_folder):
             raw_graph = pickle.load(f)
         contigs = walk_to_sequence(paths, raw_graph)
 
-        assembly_path = os.path.join(out_folder, f'{env.graph_names[i][:-2]}.fasta')
+        assembly_path = os.path.join(out_folder, f'{env.graph_names[i][:-2]}_assembly.fasta')
         SeqIO.write(contigs, assembly_path, 'fasta')
 
 def evaluate_with_minigraph(ref_path, out):
@@ -214,7 +214,7 @@ def evaluate_with_minigraph(ref_path, out):
     for p in procs:
         p.wait()
 
-    parse_minigraph_for_chrs(out, dataset)
+    parse_minigraph_for_chrs(out)
 
 def run_minigraph(ref, asm, paf):
     minigraph = f'/home/schmitzmf/minigraph/minigraph'
@@ -239,9 +239,11 @@ def parse_pafs(idx, report, paf):
 def parse_minigraph_for_chrs(save_path, data):
     ng50, nga50 = {}, {}
 
-    for idx in data.indices:
-        end_char = data.graphs[idx].find('_')
-        chr = data.graphs[idx][:end_char]
+    for i in range(1,24):
+        if i == 23:
+            chr = 'chrX'
+        else:
+            chr = f'chr{i}'
         stat_path = f'{save_path}/{chr}_minigraph.txt'
         with open(stat_path) as f:
             for line in f.readlines():
@@ -268,7 +270,7 @@ def parse_minigraph_for_chrs(save_path, data):
 
 processed_graphs_folder = '../../scratch/from_my_ionode/dag_pbsim_data/rl_processed_graphs'
 raw_graphs_folder = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/raw'
-assembly_folder = '../../scratch/from_my_ionode/dag_pbsim_data/rl_assembly'
+assembly_folder = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/rl_assembly'
 ref_path = '../../scratch/from_my_ionode/chm13_references'
 
 """raw_graphs_folder = '../data/raw_graphs'
