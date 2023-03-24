@@ -10,7 +10,7 @@ def get_hyperparameters():
         # Model
         'dim_latent': 64,
         'num_gnn_layers': 4,
-        'node_features': 8,
+        'node_features': 3,
         'edge_features': 3,
         'hidden_edge_features': 16,
         'hidden_edge_scores': 64,

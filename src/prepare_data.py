@@ -20,11 +20,11 @@ def create_dag_ftrs(nx_graph):
         added_sequence[e] = read_length[e[1]] - added_sequence[e]
     nx.set_edge_attributes(nx_graph, added_sequence, 'added_sequence')
 
-    seq_dist = dag_longest_paths(nx_graph, weight="added_sequence", default_weight=1).unsqueeze(dim=1)
-    node_dist = dag_longest_paths(nx_graph, weight="none", default_weight=1).unsqueeze(dim=1)
+    seq_dist = longest_path_vector(nx_graph, weight="added_sequence").unsqueeze(dim=1)
+    node_dist = longest_path_vector(nx_graph, weight=None).unsqueeze(dim=1)
+
     anc = torch.zeros(nx_graph.number_of_nodes())
     desc = torch.zeros(nx_graph.number_of_nodes())
-    # print(g.nodes, len(list(topo_order)))
     topo_order = nx.topological_sort(nx_graph)
 
     for v in topo_order:
@@ -58,32 +58,30 @@ def create_read_length(nx_graph):
     read_length = read_length.unsqueeze(dim=1)
     return read_length, relative_read_length
 
-def dag_longest_paths(G, weight="weight", default_weight=1, topo_order=None):
-    if not G:
-        print("graph empty")
-        return []
+def longest_path_vector(G, weight=None):
+    # Initialize a dictionary to store the longest path from each node
+    longest_paths = torch.zeros(G.number_of_nodes())
 
-    if topo_order is None:
-        topo_order = nx.topological_sort(G)
+    # Iterate over the nodes in reverse topological order
+    for node in reversed(list(nx.topological_sort(G))):
+        # Initialize the longest path from this node to be 0
+        longest_path = 0
 
-    dist = {}  # stores {v : (length, u)}
-    # only_dist =  {}
-    only_dist = torch.zeros(G.number_of_nodes())
-    # print(topo_order)
-    for v in topo_order:
-        us = [
-            (dist[u][0] + data.get(weight, default_weight), u)
-            for u, data in G.pred[v].items()
-        ]
-        # Use the best predecessor if there is one and its distance is
-        # non-negative, otherwise terminate.
-        maxu = max(us, key=lambda x: x[0]) if us else (0, v)
-        dist[v] = maxu if maxu[0] >= 0 else (0, v)
-        only_dist[v] = maxu[0]
+        # Iterate over the successors of this node
+        for successor in G.successors(node):
+            # Compute the length of the path from this node to its successor
+            if weight==None:
+                path_length = 1 + longest_paths[successor]
+            else:
+                path_length = G[node][successor][weight] + longest_paths[successor]
 
-    # m = torch.max(only_dist)
-    # only_dist /= m
-    return only_dist
+            # Update the longest path from this node if the path to this successor is longer
+            longest_path = max(longest_path, path_length)
+
+        # Store the longest path from this node in the dictionary
+        longest_paths[node] = longest_path
+    # Return the list of longest paths from every node
+    return longest_paths
 
 def create_in_out(nx_graph):
     in_out_degrees = torch.zeros(nx_graph.number_of_nodes(), 2)
@@ -150,19 +148,19 @@ def process_graph_dag(out_dir, data_path, filename, id):
     #    pickle.dump(nx_graph, f)
 
     ground_truth = create_gt(nx_graph)
-    read_length, relative_read_length = create_read_length(nx_graph)
+    #read_length, relative_read_length = create_read_length(nx_graph)
     in_out = create_in_out(nx_graph)
     anc_desc, node_dist, seq_dist, non_trans_edges = create_dag_ftrs(nx_graph)
     edge_ftrs = create_edge_features(nx_graph)
 
     # Get the node and edge attributes
     edge_index = torch.tensor(list(nx_graph.edges)).t().contiguous()
-    num_nodes = nx_graph.number_of_nodes()
+    #num_nodes = nx_graph.number_of_nodes()
     # Create a PyTorch Geometric data object
     pyg_graph = Data(edge_index=edge_index)
     pyg_graph.edge_attr = torch.hstack((non_trans_edges, edge_ftrs))
     pyg_graph.y = ground_truth
-    pyg_graph.x = torch.hstack((in_out, relative_read_length, read_length, seq_dist, node_dist, anc_desc))
+    pyg_graph.x = torch.hstack((in_out, seq_dist)) #relative_read_length, read_length, seq_dist, node_dist, anc_desc))
 
     """print(list(nx_graph.edges(0)))
     mask = (pyg_graph.edge_index[0] == 0) | (pyg_graph.edge_index[1] == 0)
@@ -212,9 +210,10 @@ if __name__ == '__main__':
     in_dir = os.path.join(os.path.abspath(args.data), 'raw_graphs')
     out_dir = os.path.join(os.path.abspath(args.data), 'processed_graphs')
 
-    out_dir = '../../scratch/from_my_ionode/dag_pbsim_data/rl_processed_graphs'
-    in_dir = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/raw'
-
+    #out_dir = '../../scratch/from_my_ionode/dag_pbsim_data/rl_processed_graphs'
+    #in_dir = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/raw'
+    out_dir = '../data/processed_graphs'
+    in_dir = '../data/raw_graphs'
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

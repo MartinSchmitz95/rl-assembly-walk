@@ -1,4 +1,4 @@
-from agent import AssemblyWalkAgent
+from agent import AssemblyWalkAgent, GreedyWalkAgent
 from environment import GraphWalkEnv
 from hyperparameters import get_hyperparameters
 from tqdm import tqdm
@@ -7,7 +7,7 @@ from tqdm import tqdm
 graph_folder = '../data/processed_graphs'
 config = get_hyperparameters()
 env = GraphWalkEnv(graph_folder)
-agent = AssemblyWalkAgent(config)
+agent = GreedyWalkAgent()
 
 for episode in tqdm(range(config['n_episodes'])):
     obs = env.reset()

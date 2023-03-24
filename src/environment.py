@@ -35,7 +35,7 @@ class GraphWalkEnv():
     def _get_info(self):
         return None
 
-    def reset(self, graph_path=None, seed=None, options=None):
+    def reset(self, graph_path=None, seed_node=None):
         """
         load a random graph from the training set.
         choose a random node as starting position.
@@ -59,8 +59,11 @@ class GraphWalkEnv():
             key = (e[0], e[1])
             self.malicious_edges[key] = mal
 
+        if seed_node == None:
+            self.active_node = random.choice(list(self.active_graph_nx.nodes))
+        else:
+            self.active_node = seed_node
 
-        self.active_node = random.choice(list(self.active_graph_nx.nodes))
         observation = self._get_obs()
         return observation
     def get_legal_actions(self):

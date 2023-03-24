@@ -11,6 +11,22 @@ class RandomWalkAgent:
         #legal_actions.append(None)
         return random.choice(legal_actions)
 
+class GreedyWalkAgent:
+    def __init__(self,):
+        pass
+    def get_action(self, obs, legal_actions):
+        #legal_actions.append(None)
+        dists = obs['graph'].x[:,2]  # node distance slice
+        max_dist = 0
+        best_action = legal_actions[0]
+        for action in legal_actions:
+            d = dists[action[1]].item()
+            if d > max_dist:
+                best_action = action
+                max_dist = d
+            #print(best_action)
+        #print(max_dist)
+        return best_action
 
 class AssemblyWalkAgent:
     def __init__(
