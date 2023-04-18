@@ -4,7 +4,7 @@ from hyperparameters import get_hyperparameters
 from tqdm import tqdm
 
 
-graph_folder = '../data/processed_graphs'
+graph_folder = 'data/processed_graphs'
 config = get_hyperparameters()
 env = GraphWalkEnv(graph_folder)
 agent = GreedyWalkAgent()

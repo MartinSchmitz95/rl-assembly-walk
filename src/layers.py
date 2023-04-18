@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
 from torch_geometric.nn import MessagePassing
-from positional_encodings.torch_encodings import PositionalEncoding1D, Summer
 
 
 class TwoLayerMLP(torch.nn.Module):

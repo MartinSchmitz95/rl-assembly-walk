@@ -1,22 +1,27 @@
+from typing import Dict
 import numpy as np
-from model import QValueModel
+from model import GraphDQN
 import random
 import torch
 from torch_geometric.utils import k_hop_subgraph, subgraph
 
+
 class RandomWalkAgent:
     def __init__(self,):
         pass
+
     def get_action(self, obs, legal_actions):
-        #legal_actions.append(None)
+        # legal_actions.append(None)
         return random.choice(legal_actions)
 
+
 class GreedyWalkAgent:
-    def __init__(self,):
-        pass
+    def __init__(self, config: Dict):
+        self.__config = config
+
     def get_action(self, obs, legal_actions):
-        #legal_actions.append(None)
-        dists = obs['graph'].x[:,2]  # node distance slice
+        # legal_actions.append(None)
+        dists = obs['graph'].x[:, 2]  # node distance slice
         max_dist = 0
         best_action = legal_actions[0]
         for action in legal_actions:
@@ -24,9 +29,16 @@ class GreedyWalkAgent:
             if d > max_dist:
                 best_action = action
                 max_dist = d
-            #print(best_action)
-        #print(max_dist)
+            # print(best_action)
+        # print(max_dist)
         return best_action
+
+    def __build_target_network(self):
+        pass
+
+    def __build_policy_network(self):
+        pass
+
 
 class AssemblyWalkAgent:
     def __init__(
@@ -45,7 +57,7 @@ class AssemblyWalkAgent:
             discount_factor: The discount factor for computing the Q-value
         """
 
-        self.q_values = QValueModel(config).to(config['device'])
+        self.q_values = GraphDQN(config).to(config['device'])
 
         """if 'cuda' in config['device']:
             cuda_device_id = int(config['device'].split(":")[1])
@@ -119,7 +131,7 @@ class AssemblyWalkAgent:
         action_value, action_index = torch.max(legal_q_action_values, dim=0)
         action_value = action_value.item()
         action_index = action_index.item()
-        #action_index = torch.argmax(legal_q_action_values, dim=0)
+        # action_index = torch.argmax(legal_q_action_values, dim=0)
         # compare best edge action with stop action and return best
         if stop_action > action_value:
             action = None
