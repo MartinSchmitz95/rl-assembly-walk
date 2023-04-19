@@ -4,10 +4,10 @@ from hyperparameters import get_hyperparameters
 from tqdm import tqdm
 
 
-graph_folder = 'data/processed_graphs'
+graph_folder = 'data/train'
 config = get_hyperparameters()
 env = GraphWalkEnv(graph_folder)
-agent = GreedyWalkAgent()
+agent = AssemblyWalkAgent(config)
 
 for episode in tqdm(range(config['n_episodes'])):
     obs = env.reset()

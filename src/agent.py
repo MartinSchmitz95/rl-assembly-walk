@@ -33,12 +33,6 @@ class GreedyWalkAgent:
         # print(max_dist)
         return best_action
 
-    def __build_target_network(self):
-        pass
-
-    def __build_policy_network(self):
-        pass
-
 
 class AssemblyWalkAgent:
     def __init__(
@@ -57,19 +51,18 @@ class AssemblyWalkAgent:
             discount_factor: The discount factor for computing the Q-value
         """
 
-        self.q_values = GraphDQN(config).to(config['device'])
+        self.q_network = GraphDQN(config).to(config['device'])
 
         """if 'cuda' in config['device']:
             cuda_device_id = int(config['device'].split(":")[1])
             self.q_values = self.q_values.cuda(cuda_device_id)"""
 
-        self.gnn_layers = config['num_gnn_layers']
-        self.lr = config['learning_rate']
+        self.num_gnn_layers = config['num_gnn_layers']
+        self.learning_rate = config['learning_rate']
         self.discount_factor = config['discount_factor']
         self.epsilon = config['start_epsilon']
         # reduce the exploration over time
-        self.epsilon_decay = config['start_epsilon'] / \
-            (config['n_episodes'] / 2)
+        self.epsilon_decay = config['start_epsilon'] / (config['n_episodes'] / 2.)
         self.final_epsilon = config['final_epsilon']
 
         if inference:
@@ -84,7 +77,8 @@ class AssemblyWalkAgent:
         otherwise a random action with probability epsilon to ensure exploration.
         """
         # with probability epsilon return a random action to explore the environment
-        if np.random.random() < self.epsilon:
+        threshold = np.random.random()
+        if threshold < self.epsilon:
             legal_actions.append(None)
             return random.choice(legal_actions)
         # with probability (1 - epsilon) act greedily (exploit)
@@ -97,9 +91,9 @@ class AssemblyWalkAgent:
         :param legal_actions:
         :return: the best legal action according to the q-function
         """
-        self.q_values.eval()
+        self.q_network.eval()
         # create k-hop subgraph
-        subset, edge_index, _, _ = k_hop_subgraph(obs['agent_location'], self.gnn_layers,
+        subset, edge_index, _, _ = k_hop_subgraph(obs['agent_location'], self.num_gnn_layers,
                                                   obs['graph'].edge_index, relabel_nodes=True,
                                                   flow='target_to_source')  # directed=False
         _, e = subgraph(subset, obs['graph'].edge_index,
@@ -107,7 +101,7 @@ class AssemblyWalkAgent:
         x = obs['graph'].x[subset]
 
         # here the q-value of the env get be computed
-        edge_values, node_values = self.q_values(edge_index, x, e)
+        edge_values, node_values = self.q_network(edge_index, x, e)
 
         # find which node is the current agent position
         stop_action_index = torch.argwhere(
@@ -115,7 +109,7 @@ class AssemblyWalkAgent:
         stop_action = node_values[stop_action_index]
 
         # retrieve edge index ids, to check with q-value outputs are from the legal actions
-        _, edge_index_norelabel, _, _ = k_hop_subgraph(obs['agent_location'], self.gnn_layers,
+        _, edge_index_norelabel, _, _ = k_hop_subgraph(obs['agent_location'], self.num_gnn_layers,
                                                        obs['graph'].edge_index, relabel_nodes=False,
                                                        flow='target_to_source')  # directed=False
         comp = edge_index_norelabel[0].numpy()
@@ -149,3 +143,9 @@ class AssemblyWalkAgent:
     def decay_epsilon(self):
         self.epsilon = max(self.final_epsilon,
                            self.epsilon - self.epsilon_decay)
+
+    def __build_target_network(self):
+        pass
+
+    def __build_policy_network(self):
+        pass

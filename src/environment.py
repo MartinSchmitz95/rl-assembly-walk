@@ -78,7 +78,7 @@ class GraphWalkEnv():
         reward: This is the reward that the agent will receive after taking the action.
         terminated: This is a boolean variable that indicates whether or not the environment has terminated.
         """
-        if action == None:  # agent decides to stop
+        if action is None:  # agent decides to stop
             terminated = True
             reward = 0
         else:
