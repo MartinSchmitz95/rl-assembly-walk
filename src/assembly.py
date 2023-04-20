@@ -6,10 +6,12 @@ from tqdm import tqdm
 import networkx as nx
 import torch
 import os
+import re
 import pickle
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
+
 
 def dag_longest_paths(G, weight="weight", default_weight=1, topo_order=None):
     if not G:
@@ -37,12 +39,14 @@ def dag_longest_paths(G, weight="weight", default_weight=1, topo_order=None):
     # only_dist /= m
     return only_dist
 
+
 def set_best_startnode(graph, env):
     # sets best startnode and returns max possible reward
 
-    env.active_node =  torch.argmax(total_dist).item()
+    env.active_node = torch.argmax(total_dist).item()
     max_reward = torch.max(total_dist).item()
     return max_reward
+
 
 def walk_to_sequence(walks, graph):
     reads = nx.get_node_attributes(graph, 'read_sequence')
@@ -73,12 +77,13 @@ def walk_to_sequence(walks, graph):
     print(f'Number of Contigs: {len(contigs)}')
     return contigs
 
+
 def get_paths(env, agent):
     """Iteratively search for contigs in a graph until the threshold is met."""
 
     """Iteratively search for contigs in a graph until the threshold is met."""
     # graph.remove_edges_from(nx.selfloop_edges(graph)) # self loops handled later
-    all_contigs = []  ##
+    all_contigs = []
     visited = set()
     idx_contig = -1
     total_max_reward = 0
@@ -112,7 +117,7 @@ def get_paths(env, agent):
         if len(env.active_graph_nx.edges()) < 10:  # if not sufficient edges in subgraph anymore: stop
             break
 
-        print(f'\nidx_contig: {idx_contig}, nb_processed_nodes: {len(visited)}, ' \
+        print(f'\nidx_contig: {idx_contig}, nb_processed_nodes: {len(visited)}, '
               f'nb_remaining_nodes: {env.active_graph_nx.number_of_nodes()}, nb_original_nodes: {env.active_graph_nx.number_of_nodes()}')
 
         # play one episode
@@ -137,7 +142,8 @@ def get_paths(env, agent):
         break  # debug on single contig
     return all_contigs
 
-def find_walk(agent, env, start_node, backwards = False):
+
+def find_walk(agent, env, start_node, backwards=False):
     walk = []
     new_visited = set()
     env.reset()
@@ -151,14 +157,14 @@ def find_walk(agent, env, start_node, backwards = False):
 
     while not terminated:
         # reset env and set start node
-        if not(backwards and first_iter):
+        if not (backwards and first_iter):
             walk.append(obs["agent_location"])
-            first_iter=False
+            first_iter = False
         legal_actions = env.get_legal_actions()
         action = agent.get_action(obs, legal_actions)
         if action is not None:
             new_visited.add(action[1])
-            new_visited.add(action[1]^1)
+            new_visited.add(action[1] ^ 1)
 
         next_obs, _, terminated = env.step_inference(action)
         # update if the environment is done and the current obs
@@ -168,6 +174,7 @@ def find_walk(agent, env, start_node, backwards = False):
         env.active_graph_nx = env.active_graph_nx.reverse(copy=False)
         walk = list(reversed(walk))
     return walk, new_visited, len(walk)
+
 
 def assemble_all_graphs(env, agent, out_folder):
     for i, graph_path in enumerate(env.graph_dataset):
@@ -182,11 +189,12 @@ def assemble_all_graphs(env, agent, out_folder):
         assembly_path = os.path.join(out_folder, f'{env.graph_names[i][:-2]}_assembly.fasta')
         SeqIO.write(contigs, assembly_path, 'fasta')
 
+
 def evaluate_with_minigraph(ref_path, out):
 
     procs = []
 
-    for i in range(1,24):
+    for i in range(1, 24):
         if i == 23:
             chr = 'chrX'
         else:
@@ -216,6 +224,7 @@ def evaluate_with_minigraph(ref_path, out):
 
     parse_minigraph_for_chrs(out)
 
+
 def run_minigraph(ref, asm, paf):
     minigraph = f'/home/schmitzmf/minigraph/minigraph'
     # paftools = f'/home/vrcekl/minimap2-2.24_x64-linux/paftools.js'
@@ -225,6 +234,7 @@ def run_minigraph(ref, asm, paf):
     with open(paf, 'w') as f:
         p = subprocess.Popen(cmd, stdout=f)
     return p
+
 
 def parse_pafs(idx, report, paf):
     # paftools = f'/home/schmitzmf/minimap2/paftools.js'
@@ -236,10 +246,11 @@ def parse_pafs(idx, report, paf):
         p = subprocess.Popen(cmd, stdout=f)
     return p
 
+
 def parse_minigraph_for_chrs(save_path, data):
     ng50, nga50 = {}, {}
 
-    for i in range(1,24):
+    for i in range(1, 24):
         if i == 23:
             chr = 'chrX'
         else:
@@ -268,6 +279,7 @@ def parse_minigraph_for_chrs(save_path, data):
     print(*nga50.values(), sep='\n')
     print()
 
+
 processed_graphs_folder = '../../scratch/from_my_ionode/dag_pbsim_data/rl_processed_graphs'
 raw_graphs_folder = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/raw'
 assembly_folder = '../../scratch/from_my_ionode/dag_pbsim_data/inference_graphs/rl_assembly'
@@ -295,6 +307,6 @@ if not os.path.exists(rl_ass_folder):
     os.makedirs(rl_ass_folder)
 
 assemble_all_graphs(env, rnd_agent, rnd_ass_folder)
-#assemble_all_graphs(env, rl_agent, rl_ass_folder)
+# assemble_all_graphs(env, rl_agent, rl_ass_folder)
 print('created')
 evaluate_with_minigraph(ref_path, rnd_ass_folder)

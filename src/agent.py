@@ -3,6 +3,7 @@ import numpy as np
 from model import GraphDQN
 import random
 import torch
+from torch import optim
 from torch_geometric.utils import k_hop_subgraph, subgraph
 
 
@@ -51,11 +52,10 @@ class AssemblyWalkAgent:
             discount_factor: The discount factor for computing the Q-value
         """
 
-        self.q_network = GraphDQN(config).to(config['device'])
-
-        """if 'cuda' in config['device']:
-            cuda_device_id = int(config['device'].split(":")[1])
-            self.q_values = self.q_values.cuda(cuda_device_id)"""
+        # ? The policy network is trained to select optimal direction, and the target network predicts the value of it
+        self.policy_network = GraphDQN(config).to(config['device'])
+        self.target_network = GraphDQN(config).to(config['device'])
+        self.target_network.load_state_dict(self.policy_network.state_dict())
 
         self.num_gnn_layers = config['num_gnn_layers']
         self.learning_rate = config['learning_rate']
@@ -64,6 +64,9 @@ class AssemblyWalkAgent:
         # reduce the exploration over time
         self.epsilon_decay = config['start_epsilon'] / (config['n_episodes'] / 2.)
         self.final_epsilon = config['final_epsilon']
+
+        self.cumulative_reward = 0.
+        self.optimizer = optim.Adam(self.policy_network.parameters(), betas=[config["adam_beta1"], config["adam_beta2"]], lr=config["learning_rate"])
 
         if inference:
             self.final_epsilon = 1
@@ -91,21 +94,19 @@ class AssemblyWalkAgent:
         :param legal_actions:
         :return: the best legal action according to the q-function
         """
-        self.q_network.eval()
+        self.policy_network.eval()
         # create k-hop subgraph
         subset, edge_index, _, _ = k_hop_subgraph(obs['agent_location'], self.num_gnn_layers,
                                                   obs['graph'].edge_index, relabel_nodes=True,
-                                                  flow='target_to_source')  # directed=False
-        _, e = subgraph(subset, obs['graph'].edge_index,
-                        edge_attr=obs['graph'].edge_attr, relabel_nodes=False)
+                                                  flow='target_to_source') 
+        _, e = subgraph(subset, obs['graph'].edge_index, edge_attr=obs['graph'].edge_attr, relabel_nodes=False)
         x = obs['graph'].x[subset]
 
         # here the q-value of the env get be computed
-        edge_values, node_values = self.q_network(edge_index, x, e)
+        edge_values, node_values = self.policy_network(edge_index, x, e)
 
         # find which node is the current agent position
-        stop_action_index = torch.argwhere(
-            subset == obs['agent_location']).item()
+        stop_action_index = torch.argwhere(subset == obs['agent_location']).item()
         stop_action = node_values[stop_action_index]
 
         # retrieve edge index ids, to check with q-value outputs are from the legal actions
@@ -116,8 +117,7 @@ class AssemblyWalkAgent:
         edge_action_index = np.argwhere(comp == obs['agent_location'])
         print("hiiiii", edge_action_index)
         print(legal_actions)
-        legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze(
-        )].view(-1, 2)
+        legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze()].view(-1, 2)
         # if len(legal_actions_recomputed) == 1:  # if only one legal action, the tensor is squeeed otherwise
         #    legal_actions_recomputed.unsqueeze(1)
         legal_q_action_values = edge_values[edge_action_index.squeeze()].view(-1, 1)
@@ -138,14 +138,18 @@ class AssemblyWalkAgent:
 
     def update(self, obs, action, reward, terminated, next_obs):
         """Updates the Q-value of an action."""
-        pass
+        if terminated:
+            return
+
+        subset, edge_index, _, _ = k_hop_subgraph(obs['agent_location'],
+                                                  self.num_gnn_layers,
+                                                  obs['graph'].edge_index,
+                                                  relabel_nodes=True,
+                                                  flow='target_to_source')
+        _, e = subgraph(subset, obs['graph'].edge_index, edge_attr=obs['graph'].edge_attr, relabel_nodes=False)
+        x = obs['graph'].x[subset]
+        # self.target_network(edge_index, )
 
     def decay_epsilon(self):
         self.epsilon = max(self.final_epsilon,
                            self.epsilon - self.epsilon_decay)
-
-    def __build_target_network(self):
-        pass
-
-    def __build_policy_network(self):
-        pass

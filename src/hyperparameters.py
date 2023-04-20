@@ -1,5 +1,6 @@
 import torch
 
+
 def get_hyperparameters():
     return {
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu',
@@ -21,6 +22,8 @@ def get_hyperparameters():
         'learning_rate': 2e-5,
         'discount_factor': 0.95,
         'start_epsilon': 1.0,
-        'final_epsilon': 0.1
+        'final_epsilon': 0.1,
+        'adam_beta1': 0.9,
+        'adam_beta2': 0.999,
 
-	}
+    }
