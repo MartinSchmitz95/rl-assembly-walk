@@ -10,7 +10,7 @@ class Transition:
         self.reward = reward
 
 
-class ReplayMemory:
+class ReplayBuffer:
     def __init__(self, capacity: int):
         self.memory = deque([], maxlen=capacity)
 
@@ -23,3 +23,6 @@ class ReplayMemory:
 
     def __len__(self):
         return len(self.memory)
+    
+    def empty(self):
+        self.memory.clear()

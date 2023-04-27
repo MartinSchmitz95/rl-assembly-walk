@@ -16,15 +16,14 @@ for episode in tqdm(range(config['n_episodes'])):
     # play one episode
     while not done:
         legal_actions = env.get_legal_actions()
-        action = agent.get_action(obs, legal_actions)
+        action, action_values = agent.get_action(obs, legal_actions)
         next_obs, reward, terminated = env.step(action)
 
         # update the agent
-        agent.update(obs, action, reward, terminated, next_obs)
+        agent.update(obs, next_obs, action, action_values, reward, terminated)
 
         # update if the environment is done and the current obs
         done = terminated
         obs = next_obs
 
     agent.decay_epsilon()
-

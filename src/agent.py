@@ -5,6 +5,7 @@ import random
 import torch
 from torch import optim
 from torch_geometric.utils import k_hop_subgraph, subgraph
+from memory import ReplayBuffer, Transition
 
 
 class RandomWalkAgent:
@@ -66,7 +67,14 @@ class AssemblyWalkAgent:
         self.final_epsilon = config['final_epsilon']
 
         self.cumulative_reward = 0.
+        self.loss_function = torch.nn.SmoothL1Loss()
         self.optimizer = optim.Adam(self.policy_network.parameters(), betas=[config["adam_beta1"], config["adam_beta2"]], lr=config["learning_rate"])
+
+        self.__edge_qvalues = None
+        self.__node_qvalues = None
+
+        self.__batch_size = 64
+        self.__replay_memory = ReplayBuffer(self.__batch_size)
 
         if inference:
             self.final_epsilon = 1
@@ -98,12 +106,16 @@ class AssemblyWalkAgent:
         # create k-hop subgraph
         subset, edge_index, _, _ = k_hop_subgraph(obs['agent_location'], self.num_gnn_layers,
                                                   obs['graph'].edge_index, relabel_nodes=True,
-                                                  flow='target_to_source') 
+                                                  flow='target_to_source')
         _, e = subgraph(subset, obs['graph'].edge_index, edge_attr=obs['graph'].edge_attr, relabel_nodes=False)
         x = obs['graph'].x[subset]
 
         # here the q-value of the env get be computed
         edge_values, node_values = self.policy_network(edge_index, x, e)
+        self.target_network(edge_index, x, e)
+
+        self.__edge_qvalues = edge_values
+        self.__node_qvalues = node_values
 
         # find which node is the current agent position
         stop_action_index = torch.argwhere(subset == obs['agent_location']).item()
@@ -115,8 +127,7 @@ class AssemblyWalkAgent:
                                                        flow='target_to_source')  # directed=False
         comp = edge_index_norelabel[0].numpy()
         edge_action_index = np.argwhere(comp == obs['agent_location'])
-        print("hiiiii", edge_action_index)
-        print(legal_actions)
+
         legal_actions_recomputed = edge_index_norelabel.T[edge_action_index.squeeze()].view(-1, 2)
         # if len(legal_actions_recomputed) == 1:  # if only one legal action, the tensor is squeeed otherwise
         #    legal_actions_recomputed.unsqueeze(1)
@@ -134,21 +145,30 @@ class AssemblyWalkAgent:
             target = legal_actions_recomputed[action_index][1].item()
             action = (source, target)
 
-        return action
+        action_values = torch.concat([edge_values, node_values])
 
-    def update(self, obs, action, reward, terminated, next_obs):
+        return action, action_values
+
+    def update(self, obs, next_obs, action, action_values, reward, terminated):
         """Updates the Q-value of an action."""
-        if terminated:
+        if terminated or self.__edge_qvalues is None or self.__node_qvalues is None:
             return
 
-        subset, edge_index, _, _ = k_hop_subgraph(obs['agent_location'],
-                                                  self.num_gnn_layers,
-                                                  obs['graph'].edge_index,
-                                                  relabel_nodes=True,
-                                                  flow='target_to_source')
-        _, e = subgraph(subset, obs['graph'].edge_index, edge_attr=obs['graph'].edge_attr, relabel_nodes=False)
-        x = obs['graph'].x[subset]
-        # self.target_network(edge_index, )
+        if len(self.__replay_memory) < self.__batch_size:
+            return
+
+
+        next_edge_values, next_node_values = self.target_network(edge_index, x, e)
+        next_values = torch.concatenate([next_edge_values, next_node_values])
+        qvalues = torch.concatenate([self.__edge_qvalues, self.__node_qvalues])
+
+        loss = self.loss_function(next_values, qvalues)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        
+        self.__replay_memory.empty()
 
     def decay_epsilon(self):
         self.epsilon = max(self.final_epsilon,

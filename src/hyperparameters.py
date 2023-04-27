@@ -11,13 +11,14 @@ def get_hyperparameters():
         # Model
         'dim_latent': 64,
         'num_gnn_layers': 4,
-        'node_features': 3,
+        'node_features': 8,
         'edge_features': 3,
         'hidden_edge_features': 16,
         'hidden_edge_scores': 64,
         'batch_norm': False,
 
         # Training
+        'gamma': 0.99,
         'n_episodes': 1_000,
         'learning_rate': 2e-5,
         'discount_factor': 0.95,
